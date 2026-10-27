@@ -1,8 +1,12 @@
 spring:
+  config:
+    import:
+      - "optional:file:./.env[.properties]"
+      - "optional:file:../.env[.properties]"
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/econnews}
-    username: ${DB_USERNAME:econnews}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/${POSTGRES_DB:econnews}}
+    username: ${DB_USERNAME:${POSTGRES_USER:econnews}}
+    password: ${DB_PASSWORD:${POSTGRES_PASSWORD}}
 
   jpa:
     open-in-view: false
