@@ -16,6 +16,7 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.econnews.auth.application.exception.InvalidCredentialsException;
 import com.econnews.shared.adapter.web.logging.RequestIdFilter;
 import com.econnews.shared.adapter.web.response.ApiResponses;
 import com.econnews.shared.application.exception.BusinessRuleException;
@@ -37,12 +38,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             MethodArgumentNotValidException exception, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
         List<FieldViolation> errors = new ArrayList<>();
-        exception.getBindingResult().getFieldErrors().forEach(error ->
-            errors.add(new FieldViolation(error.getField(), rule(error.getCode()),
-                    error.getDefaultMessage())));
-        exception.getBindingResult().getGlobalErrors().forEach(error ->
-            errors.add(new FieldViolation(null, rule(error.getCode()),
-                    error.getDefaultMessage())));
+        exception.getBindingResult().getFieldErrors()
+                .forEach(error -> errors.add(new FieldViolation(error.getField(), rule(error.getCode()),
+                        error.getDefaultMessage())));
+        exception.getBindingResult().getGlobalErrors()
+                .forEach(error -> errors.add(new FieldViolation(null, rule(error.getCode()),
+                        error.getDefaultMessage())));
         return buildResponse("VALIDATION_FAILED", "Dữ liệu gửi lên không hợp lệ.",
                 errors, status, headers, request);
     }
@@ -84,7 +85,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private String rule(String constraint) {
-        if (constraint == null) return null;
+        if (constraint == null)
+            return null;
         return switch (constraint) {
             case "NotBlank" -> "NOT_BLANK";
             case "NotNull" -> "NOT_NULL";
@@ -132,5 +134,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                     ? "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau."
                     : "Yêu cầu không hợp lệ hoặc không được hỗ trợ.";
         };
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<Object> handleInvalidCredentials(
+            InvalidCredentialsException exception,
+            WebRequest request) {
+
+        return buildResponse(
+                "INVALID_CREDENTIALS",
+                exception.getMessage(),
+                List.of(),
+                HttpStatus.UNAUTHORIZED,
+                HttpHeaders.EMPTY,
+                request);
     }
 }
