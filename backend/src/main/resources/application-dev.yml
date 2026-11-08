@@ -16,3 +16,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+app:
+  jwt:
+    issuer: econnews
+    audience: econnews-api
+    key-id: local-rsa-1
+    access-token-ttl: 15m
+    private-key: ${JWT_PRIVATE_KEY_PATH}
+    public-key: ${JWT_PUBLIC_KEY_PATH}
