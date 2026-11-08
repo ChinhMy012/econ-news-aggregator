@@ -1,0 +1,189 @@
+package com.econnews.event.adapter.in.web;
+
+import com.econnews.event.adapter.in.web.request.EventRequests.*;
+import com.econnews.event.adapter.in.web.response.EventResponses.*;
+import com.econnews.event.application.ManageEvents;
+import com.econnews.shared.adapter.web.response.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import java.net.URI;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/v1/admin/events")
+public class EventAdminController {
+
+    private final ManageEvents events;
+
+    public EventAdminController(ManageEvents events) {
+        this.events = events;
+    }
+
+    @GetMapping
+    public ResponseEntity<?> list(
+        @RequestParam(defaultValue = "ALL") String status,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size,
+        HttpServletRequest request
+    ) {
+        var result = events.list(status, page, size, false);
+        return ApiResponses.page(
+            "Danh sách sự kiện quản trị.",
+            result.items().stream().map(AdminSummary::from).toList(),
+            PageMeta.of(page, size, result.total()),
+            request
+        );
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> detail(@PathVariable long id, HttpServletRequest request) {
+        return ApiResponses.ok(
+            "Chi tiết sự kiện.",
+            AdminDetail.from(events.detail(id, false)),
+            request
+        );
+    }
+
+    @PostMapping
+    public ResponseEntity<?> create(@Valid @RequestBody Create body, HttpServletRequest request) {
+        var result = AdminDetail.from(events.create(body.command()));
+        return ApiResponses.created(
+            "Đã tạo sự kiện nháp.",
+            result,
+            URI.create("/api/v1/admin/events/" + result.event().id()),
+            request
+        );
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> edit(
+        @PathVariable long id,
+        @Valid @RequestBody Update body,
+        HttpServletRequest request
+    ) {
+        return ApiResponses.ok(
+            "Đã cập nhật sự kiện.",
+            AdminDetail.from(events.edit(id, body.version(), body.command())),
+            request
+        );
+    }
+
+    @PostMapping("/{id}/publish")
+    public ResponseEntity<?> publish(
+        @PathVariable long id,
+        @Valid @RequestBody Version body,
+        HttpServletRequest request
+    ) {
+        return ApiResponses.ok(
+            "Đã công khai sự kiện.",
+            AdminDetail.from(events.publish(id, body.version())),
+            request
+        );
+    }
+
+    @PostMapping("/{id}/hide")
+    public ResponseEntity<?> hide(
+        @PathVariable long id,
+        @Valid @RequestBody Hide body,
+        HttpServletRequest request
+    ) {
+        return ApiResponses.ok(
+            "Đã ẩn sự kiện.",
+            AdminDetail.from(events.hide(id, body.version(), body.reason())),
+            request
+        );
+    }
+
+    @PutMapping("/{id}/overview-sources")
+    public ResponseEntity<?> overviewSources(
+        @PathVariable long id,
+        @Valid @RequestBody Sources body,
+        HttpServletRequest request
+    ) {
+        return ApiResponses.ok(
+            "Đã cập nhật nguồn tổng quan.",
+            AdminDetail.from(
+                events.sources(id, null, body.version(), body.articleIds(), body.documentIds())
+            ),
+            request
+        );
+    }
+
+    @PostMapping("/{id}/milestones")
+    public ResponseEntity<?> createMilestone(
+        @PathVariable long id,
+        @Valid @RequestBody MilestoneBody body,
+        HttpServletRequest request
+    ) {
+        return ApiResponses.ok(
+            "Đã thêm mốc nháp.",
+            AdminDetail.from(events.createMilestone(id, body.version(), body.command())),
+            request
+        );
+    }
+
+    @PutMapping("/{id}/milestones/{milestoneId}")
+    public ResponseEntity<?> editMilestone(
+        @PathVariable long id,
+        @PathVariable long milestoneId,
+        @Valid @RequestBody MilestoneBody body,
+        HttpServletRequest request
+    ) {
+        return ApiResponses.ok(
+            "Đã cập nhật mốc.",
+            AdminDetail.from(events.editMilestone(id, milestoneId, body.version(), body.command())),
+            request
+        );
+    }
+
+    @PutMapping("/{id}/milestones/{milestoneId}/sources")
+    public ResponseEntity<?> milestoneSources(
+        @PathVariable long id,
+        @PathVariable long milestoneId,
+        @Valid @RequestBody Sources body,
+        HttpServletRequest request
+    ) {
+        return ApiResponses.ok(
+            "Đã cập nhật nguồn của mốc.",
+            AdminDetail.from(
+                events.sources(
+                    id,
+                    milestoneId,
+                    body.version(),
+                    body.articleIds(),
+                    body.documentIds()
+                )
+            ),
+            request
+        );
+    }
+
+    @PostMapping("/{id}/milestones/{milestoneId}/publish")
+    public ResponseEntity<?> publishMilestone(
+        @PathVariable long id,
+        @PathVariable long milestoneId,
+        @Valid @RequestBody Version body,
+        HttpServletRequest request
+    ) {
+        return ApiResponses.ok(
+            "Đã công khai mốc.",
+            AdminDetail.from(events.milestoneStatus(id, milestoneId, body.version(), true)),
+            request
+        );
+    }
+
+    @PostMapping("/{id}/milestones/{milestoneId}/unpublish")
+    public ResponseEntity<?> unpublishMilestone(
+        @PathVariable long id,
+        @PathVariable long milestoneId,
+        @Valid @RequestBody Version body,
+        HttpServletRequest request
+    ) {
+        return ApiResponses.ok(
+            "Đã chuyển mốc về nháp.",
+            AdminDetail.from(events.milestoneStatus(id, milestoneId, body.version(), false)),
+            request
+        );
+    }
+}
