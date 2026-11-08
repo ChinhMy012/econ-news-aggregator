@@ -5,6 +5,7 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -96,7 +97,7 @@ public class JwtConfiguration {
                 ttl);
     }
 
-    // Chỉ xác minh token; SecurityFilterChain sẽ sử dụng bean này ở bước tiếp theo.
+    // SecurityFilterChain sử dụng bean này để xác minh Bearer access token.
     @Bean
     public JwtDecoder jwtDecoder(JwtProperties properties) throws IOException {
         RSAPublicKey publicKey;
@@ -134,6 +135,11 @@ public class JwtConfiguration {
         }
         if (!"access".equals(jwt.getClaimAsString("token_type"))) {
             return invalidToken("Loại token không được chấp nhận.");
+        }
+        // Khớp khoảng dung sai 60 giây của validator thời gian mặc định.
+        if (jwt.getExpiresAt().isBefore(Instant.now().minusSeconds(60))) {
+            return OAuth2TokenValidatorResult.failure(new OAuth2Error(
+                    "access_token_expired", "Access token đã hết hạn.", null));
         }
         String subject = jwt.getSubject();
         try {

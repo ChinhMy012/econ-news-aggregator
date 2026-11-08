@@ -17,6 +17,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.econnews.auth.application.exception.InvalidCredentialsException;
+import com.econnews.auth.application.exception.AdminUnavailableException;
 import com.econnews.shared.adapter.web.logging.RequestIdFilter;
 import com.econnews.shared.adapter.web.response.ApiResponses;
 import com.econnews.shared.application.exception.BusinessRuleException;
@@ -148,5 +149,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 HttpStatus.UNAUTHORIZED,
                 HttpHeaders.EMPTY,
                 request);
+    }
+
+    @ExceptionHandler(AdminUnavailableException.class)
+    public ResponseEntity<Object> handleAdminUnavailable(AdminUnavailableException exception, WebRequest request) {
+        return buildResponse("AUTHENTICATION_REQUIRED", exception.getMessage(), List.of(),
+                HttpStatus.UNAUTHORIZED, HttpHeaders.EMPTY, request);
     }
 }
