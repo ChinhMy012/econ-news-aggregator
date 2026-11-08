@@ -1,3 +1,4 @@
+import { CollectionWidget } from '../../collections/components/CollectionWidget'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { sourcesApi } from '../api/sourcesApi'
@@ -135,7 +136,7 @@ function FeedPanel({ source }) {
             )}
             <ul className="catalog-list">
               {list?.data.map((feed) => (
-                <li key={feed.id}>
+                <li key={feed.id} className="catalog-feed-row">
                   <div>
                     <h3>{feed.name}</h3>
                     <p className="catalog-url">{feed.url}</p>
@@ -158,6 +159,7 @@ function FeedPanel({ source }) {
                   >
                     Sửa kênh
                   </button>
+                  <CollectionWidget source={source} feed={feed} editing={busy || Boolean(editor)} />
                 </li>
               ))}
             </ul>
@@ -235,7 +237,10 @@ export function SourcesPage() {
         <Link className="brand" to="/admin">
           ECON<span>NEWS</span>
         </Link>
-        <Link to="/admin">Về quản trị</Link>
+        <div className="header-actions">
+          <Link to="/admin/articles">Bài chờ duyệt</Link>
+          <Link to="/admin">Về quản trị</Link>
+        </div>
       </header>
       <main className="admin-main">
         <div className="catalog-heading">
