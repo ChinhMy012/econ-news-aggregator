@@ -2,6 +2,10 @@ package com.econnews.bootstrap.config;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import com.econnews.auth.adapter.in.security.AuthRateLimitFilter;
+import com.econnews.auth.adapter.in.security.SecurityErrorWriter;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
@@ -21,12 +25,14 @@ import com.econnews.auth.adapter.in.security.RestAuthenticationEntryPoint;
 import jakarta.servlet.DispatcherType;
 
 @Configuration
+@EnableConfigurationProperties(AuthRateLimitProperties.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder decoder,
             RestAuthenticationEntryPoint entryPoint, RestAccessDeniedHandler deniedHandler,
-            Environment environment, AuthSessionProperties properties) throws Exception {
+            Environment environment, AuthSessionProperties properties,
+            AuthRateLimitProperties rateLimits, SecurityErrorWriter errorWriter) throws Exception {
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName("roles");
         authorities.setAuthorityPrefix("ROLE_");
@@ -75,6 +81,8 @@ public class SecurityConfiguration {
                 })
                 .jwt(jwt -> jwt.decoder(decoder).jwtAuthenticationConverter(authentication))
                 .authenticationEntryPoint(entryPoint).accessDeniedHandler(deniedHandler));
+        http.addFilterBefore(new AuthRateLimitFilter(rateLimits, errorWriter),
+                UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
