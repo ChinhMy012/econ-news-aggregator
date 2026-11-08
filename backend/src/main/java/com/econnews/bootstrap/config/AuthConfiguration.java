@@ -10,6 +10,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.econnews.auth.adapter.out.security.PasswordVerifierAdapter;
 import com.econnews.auth.application.port.out.PasswordVerifier;
+import com.econnews.auth.application.port.out.AccessTokenIssuer;
+import com.econnews.auth.application.usecase.LoginUseCase;
 import com.econnews.auth.application.usecase.AuthenticateAdminUseCase;
 import com.econnews.auth.domain.repository.AdminUserRepository;
 
@@ -36,5 +38,11 @@ public class AuthConfiguration {
         return new AuthenticateAdminUseCase(
                 repository,
                 passwordVerifier);
+    }
+    @Bean
+    public LoginUseCase loginUseCase(
+            AuthenticateAdminUseCase authenticateAdminUseCase,
+            AccessTokenIssuer accessTokenIssuer) {
+        return new LoginUseCase(authenticateAdminUseCase, accessTokenIssuer);
     }
 }
