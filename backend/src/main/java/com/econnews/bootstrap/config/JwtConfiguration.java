@@ -10,6 +10,15 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.converter.RsaKeyConverters;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
@@ -85,5 +94,60 @@ public class JwtConfiguration {
                 properties.audience(),
                 properties.keyId(),
                 ttl);
+    }
+
+    // Chỉ xác minh token; SecurityFilterChain sẽ sử dụng bean này ở bước tiếp theo.
+    @Bean
+    public JwtDecoder jwtDecoder(JwtProperties properties) throws IOException {
+        RSAPublicKey publicKey;
+        try (var input = properties.publicKey().getInputStream()) {
+            publicKey = RsaKeyConverters.x509().convert(input);
+        }
+        if (publicKey == null) {
+            throw new IllegalStateException("Không đọc được khóa công khai RSA.");
+        }
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(publicKey)
+                .signatureAlgorithm(SignatureAlgorithm.RS256)
+                .build();
+
+        OAuth2TokenValidator<Jwt> defaultValidator =
+                JwtValidators.createDefaultWithIssuer(properties.issuer());
+        OAuth2TokenValidator<Jwt> applicationValidator =
+                jwt -> validateAccessToken(jwt, properties);
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                defaultValidator, applicationValidator));
+        return decoder;
+    }
+
+    private OAuth2TokenValidatorResult validateAccessToken(
+            Jwt jwt, JwtProperties properties) {
+        if (jwt.getExpiresAt() == null || jwt.getIssuedAt() == null
+                || jwt.getNotBefore() == null) {
+            return invalidToken("Token thiếu thông tin thời gian bắt buộc.");
+        }
+        if (!jwt.getExpiresAt().isAfter(jwt.getIssuedAt())) {
+            return invalidToken("Thời gian hết hạn không hợp lệ.");
+        }
+        if (jwt.getAudience() == null
+                || !jwt.getAudience().contains(properties.audience())) {
+            return invalidToken("Token không dành cho API này.");
+        }
+        if (!"access".equals(jwt.getClaimAsString("token_type"))) {
+            return invalidToken("Loại token không được chấp nhận.");
+        }
+        String subject = jwt.getSubject();
+        try {
+            if (subject == null || Long.parseLong(subject) <= 0) {
+                return invalidToken("Định danh tài khoản không hợp lệ.");
+            }
+        } catch (NumberFormatException exception) {
+            return invalidToken("Định danh tài khoản không hợp lệ.");
+        }
+        return OAuth2TokenValidatorResult.success();
+    }
+
+    private OAuth2TokenValidatorResult invalidToken(String description) {
+        return OAuth2TokenValidatorResult.failure(
+                new OAuth2Error("invalid_token", description, null));
     }
 }
