@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { authenticatedRequest } from '../../../api/httpClient'
+import { articlesApi } from '../api/articlesApi'
+import { articleStatuses, contentTypes } from '../utils/articleLabels'
+import './articles.css'
 import '../../collections/components/collections.css'
 export function PendingArticlesPage() {
+  const [status, setStatus] = useState('PENDING')
   const [page, setPage] = useState(0)
   const [reload, setReload] = useState(0)
   const [response, setResponse] = useState(null)
@@ -10,7 +13,8 @@ export function PendingArticlesPage() {
   const [error, setError] = useState(null)
   useEffect(() => {
     const abort = new AbortController()
-    authenticatedRequest(`/admin/articles?page=${page}&size=10`, { signal: abort.signal })
+    articlesApi
+      .list(status, page, abort.signal)
       .then((data) => {
         if (!abort.signal.aborted) setResponse(data)
       })
@@ -21,7 +25,7 @@ export function PendingArticlesPage() {
         if (!abort.signal.aborted) setLoading(false)
       })
     return () => abort.abort()
-  }, [page, reload])
+  }, [status, page, reload])
   function change(next) {
     setLoading(true)
     setError(null)
@@ -39,7 +43,7 @@ export function PendingArticlesPage() {
         <div className="catalog-heading">
           <div>
             <p className="eyebrow">KẾT QUẢ THU THẬP</p>
-            <h1>Bài viết chờ duyệt</h1>
+            <h1>Quản lý bài viết</h1>
           </div>
           <button
             className="secondary-button"
@@ -54,9 +58,30 @@ export function PendingArticlesPage() {
           </button>
         </div>
         <p className="muted">
-          Các bài bên dưới đang ở trạng thái PENDING, chưa hiển thị công khai. Chức năng phân loại
-          và duyệt bài sẽ làm ở bước tiếp theo.
+          Chọn bài để xem chi tiết, phân loại và duyệt. Chỉ bài đã công khai mới xuất hiện qua API
+          công khai.
         </p>
+        <div className="article-filter">
+          <label htmlFor="article-status-filter">Trạng thái</label>
+          <select
+            id="article-status-filter"
+            value={status}
+            disabled={loading}
+            onChange={(event) => {
+              setLoading(true)
+              setError(null)
+              setPage(0)
+              setStatus(event.target.value)
+            }}
+          >
+            {Object.entries(articleStatuses).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+            <option value="ALL">Tất cả trạng thái</option>
+          </select>
+        </div>
         {error && (
           <div className="field-error" role="alert">
             <p>{error.message}</p>
@@ -68,14 +93,15 @@ export function PendingArticlesPage() {
         ) : (
           !error && (
             <>
-              <p>{response?.meta.totalItems ?? 0} bài chờ duyệt</p>
-              {response?.data.length === 0 && (
-                <p>Chưa có bài. Vào quản lý nguồn RSS và chọn Thu thập ngay.</p>
-              )}
+              <p>{response?.meta.totalItems ?? 0} bài</p>
+              {response?.data.length === 0 && <p>Không có bài trong trạng thái đang chọn.</p>}
               <ul className="pending-list">
                 {response?.data.map((article) => (
                   <li key={article.id}>
-                    <span className="status-badge">Chờ duyệt</span>
+                    <span className="status-badge">{articleStatuses[article.status]}</span>
+                    <p className="article-classification">
+                      {contentTypes[article.contentType] ?? 'Chưa phân loại'}
+                    </p>
                     <h2>
                       <a href={article.originalUrl} target="_blank" rel="noopener noreferrer">
                         {article.title}
@@ -83,7 +109,7 @@ export function PendingArticlesPage() {
                     </h2>
                     {article.summary && <p className="pending-summary">{article.summary}</p>}
                     <p className="pending-meta">
-                      Nguồn #{article.sourceId} · Kênh đầu tiên #{article.firstFeedId}
+                      {article.sourceName} · Kênh đầu tiên #{article.firstFeedId}
                       <br />
                       Xuất bản:{' '}
                       {article.publishedAt
@@ -92,6 +118,9 @@ export function PendingArticlesPage() {
                       <br />
                       Thu thập: {new Date(article.collectedAt).toLocaleString('vi-VN')}
                     </p>
+                    <Link className="secondary-button" to={`/admin/articles/${article.id}`}>
+                      Xem chi tiết & xử lý
+                    </Link>
                   </li>
                 ))}
               </ul>

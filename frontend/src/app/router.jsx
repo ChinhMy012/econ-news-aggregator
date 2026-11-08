@@ -1,3 +1,4 @@
+import { ArticleDetailPage } from '../features/articles/pages/ArticleDetailPage'
 import { PendingArticlesPage } from '../features/articles/pages/PendingArticlesPage'
 import { Navigate, Route, Routes, Link } from 'react-router-dom'
 import { RequireAdmin } from '../auth/RequireAdmin'
@@ -14,6 +15,7 @@ export function AppRoutes() {
         <Route path="/admin" element={<AdminHomePage />} />
         <Route path="/admin/sources" element={<SourcesPage />} />
         <Route path="/admin/articles" element={<PendingArticlesPage />} />
+        <Route path="/admin/articles/:id" element={<ArticleDetailPage />} />
       </Route>
       <Route
         path="*"
