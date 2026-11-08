@@ -61,7 +61,7 @@ public class SecurityConfiguration {
                 authorize.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll();
                 authorize.requestMatchers("/api/v1/admin/**", "/api/v1/auth/me").hasRole("ADMIN");
                 authorize.requestMatchers(HttpMethod.GET,
-                        "/api/v1/sources", "/api/v1/articles", "/api/v1/events", "/api/v1/events/*",
+                        "/api/v1/sources", "/api/v1/articles", "/api/v1/articles/*", "/api/v1/events", "/api/v1/events/*",
                         "/api/v1/events/*/milestones", "/api/v1/events/*/articles",
                         "/api/v1/events/*/documents").permitAll();
                 if (environment.acceptsProfiles(Profiles.of("dev"))) {

@@ -1,10 +1,12 @@
 package com.econnews.article.application.port;
 
-import com.econnews.article.domain.model.ArticlePreview;
+import com.econnews.article.domain.model.*;
 import java.util.List;
+import java.util.Optional;
 
 public interface ArticleQuery {
-    record Slice(List<ArticlePreview> items, long total) {}
+    record Slice(List<ArticleDetails> items, long total) {}
 
-    Slice pending(int page, int size);
+    Slice list(ArticleStatus status, ContentType contentType, int page, int size);
+    Optional<ArticleDetails> find(long id);
 }
