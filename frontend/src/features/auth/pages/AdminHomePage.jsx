@@ -86,11 +86,23 @@ export function AdminHomePage() {
           <p className="eyebrow">GIAI ĐOẠN TIẾP THEO</p>
           <h2>Quản lý nội dung</h2>
           <p className="muted">
-            Quản lý nguồn tin và kênh RSS trước khi triển khai thu thập, duyệt bài và sự kiện.
+            Quản lý nguồn tin, duyệt bài và biên tập sự kiện kinh tế có nguồn tham chiếu.
           </p>
           <Link className="primary-button" to="/admin/sources">
             Quản lý nguồn tin & RSS
           </Link>
+          <div className="catalog-actions">
+            <Link className="secondary-button" to="/admin/articles">
+              Duyệt bài
+            </Link>
+            <Link className="secondary-button" to="/admin/events">
+              Quản lý sự kiện
+            </Link>
+            <Link className="secondary-button" to="/admin/documents">
+              Tài liệu tham chiếu
+            </Link>
+            <Link to="/events">Trang công khai</Link>
+          </div>
         </section>
       </main>
     </div>
