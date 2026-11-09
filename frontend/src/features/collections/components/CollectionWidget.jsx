@@ -117,7 +117,7 @@ export function CollectionWidget({ source, feed, editing }) {
           {history.data.map((run) => (
             <article className="collection-run" key={run.id}>
               <h4>
-                #{run.id} · {statuses[run.status]}
+                #{run.id} · {statuses[run.status]} · {run.trigger === 'SCHEDULED' ? 'Tự động' : 'Thủ công'}
               </h4>
               <p>
                 {time(run.startedAt)} → {time(run.finishedAt)}
