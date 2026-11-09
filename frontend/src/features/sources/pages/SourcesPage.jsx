@@ -257,8 +257,8 @@ export function SourcesPage() {
           </button>
         </div>
         <p className="muted">
-          Quản lý nơi lấy tin và các đường dẫn RSS. Chức năng thu thập tự động sẽ được triển khai ở
-          bước tiếp theo.
+          Quản lý nguồn tin và kênh RSS. Chọn một kênh rồi bấm Thu thập ngay để lấy bài mới.
+          Bài mới sẽ xuất hiện trong mục Bài viết ở trạng thái Chờ duyệt.
         </p>
         {notice && (
           <p role="status" className="success-message">
