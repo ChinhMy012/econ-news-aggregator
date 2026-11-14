@@ -1,110 +1,151 @@
-import { Link } from 'react-router-dom'
-import { useState } from 'react'
-import { useAuth } from '../../../auth/useAuth'
-import { authenticatedRequest } from '../../../api/httpClient'
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { authenticatedRequest } from "../../../api/httpClient";
+import { WorkspaceIcon } from "../../../components/layout/WorkspaceIcon";
+
+const metrics = [
+  {
+    title: "Nguồn tin",
+    endpoint: "/admin/sources?size=1",
+    href: "/admin/sources",
+    icon: "source",
+    tone: "blue",
+  },
+  {
+    title: "Bài chờ duyệt",
+    endpoint: "/admin/articles?status=PENDING&size=5",
+    href: "/admin/articles",
+    icon: "article",
+    tone: "amber",
+  },
+  {
+    title: "Sự kiện công khai",
+    endpoint: "/admin/events?status=PUBLISHED&size=1",
+    href: "/admin/events",
+    icon: "event",
+    tone: "green",
+  },
+  {
+    title: "Tài liệu tham chiếu",
+    endpoint: "/admin/documents?size=1",
+    href: "/admin/documents",
+    icon: "document",
+    tone: "violet",
+  },
+];
 
 export function AdminHomePage() {
-  const auth = useAuth()
-  const [check, setCheck] = useState({ pending: false, message: null, error: false })
-  const [leaving, setLeaving] = useState(false)
-  async function verify() {
-    setCheck({ pending: true, message: null, error: false })
-    try {
-      const response = await authenticatedRequest('/auth/me')
-      setCheck({
-        pending: false,
-        message: `Kết nối thành công. Tài khoản ${response.data.username} có quyền quản trị.`,
-        error: false,
-      })
-    } catch (failure) {
-      setCheck({ pending: false, message: failure.message, error: true })
-    }
-  }
-  async function logout() {
-    setLeaving(true)
-    try {
-      await auth.logout()
-    } catch {
-      /* Thông báo được giữ trên trang đăng nhập. */
-    } finally {
-      setLeaving(false)
-    }
-  }
+  const [results, setResults] = useState(null);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.allSettled(
+      metrics.map(({ endpoint }) =>
+        authenticatedRequest(endpoint, { signal: controller.signal }),
+      ),
+    ).then((data) => {
+      if (!controller.signal.aborted) setResults(data);
+    });
+    return () => controller.abort();
+  }, [refresh]);
+
+  const pendingResult = results?.[1];
+  const pending =
+    pendingResult?.status === "fulfilled" ? pendingResult.value.data : [];
+  const hasError = results?.some(({ status }) => status === "rejected");
+
   return (
-    <div className="admin-shell">
-      <header className="admin-header">
-        <a className="brand" href="/admin">
-          ECON<span>NEWS</span>
-        </a>
-        <div className="header-actions">
-          <span>{auth.user.username}</span>
-          <button className="secondary-button" onClick={logout} disabled={leaving}>
-            {leaving ? 'Đang đăng xuất…' : 'Đăng xuất'}
+    <main className="workspace-dashboard">
+      <section className="dashboard-intro">
+        <div>
+          <p className="dashboard-kicker">ECONNEWS STUDIO</p>
+          <h1>Tổng quan biên tập</h1>
+          <p>Theo dõi nguồn tin, hàng chờ duyệt và nội dung công khai.</p>
+        </div>
+        <Link className="primary-button" to="/admin/events">
+          Quản lý sự kiện <WorkspaceIcon name="arrow" size={17} />
+        </Link>
+      </section>
+
+      {hasError && (
+        <div className="error-banner" role="alert">
+          Một số số liệu chưa tải được.
+          <button
+            className="secondary-button"
+            onClick={() => {
+              setResults(null);
+              setRefresh((n) => n + 1);
+            }}
+          >
+            Tải lại
           </button>
         </div>
-      </header>
-      <main className="admin-main">
-        <p className="eyebrow">KHÔNG GIAN QUẢN TRỊ</p>
-        <h1>Xin chào, {auth.user.username}.</h1>
-        <p className="muted">Bạn đã đăng nhập vào EconNews.</p>
-        <section className="session-card">
+      )}
+
+      <section
+        className="dashboard-metrics"
+        aria-label="Số liệu nội dung"
+        aria-busy={!results}
+      >
+        {metrics.map(({ title, href, icon, tone }, index) => {
+          const result = results?.[index];
+          const total =
+            result?.status === "fulfilled"
+              ? result.value.meta?.totalItems
+              : null;
+          return (
+            <Link className="dashboard-metric" to={href} key={title}>
+              <span className={`dashboard-icon ${tone}`}>
+                <WorkspaceIcon name={icon} />
+              </span>
+              <span className="dashboard-metric-title">{title}</span>
+              <strong>
+                {total == null ? "—" : total.toLocaleString("vi-VN")}
+              </strong>
+              <span className="dashboard-metric-arrow">
+                <WorkspaceIcon name="arrow" size={16} />
+              </span>
+            </Link>
+          );
+        })}
+      </section>
+
+      <section className="dashboard-panel">
+        <header>
           <div>
-            <span className="status-badge">Đã xác thực</span>
-            <h2>Thông tin tài khoản</h2>
-            <dl>
-              <div>
-                <dt>Tên đăng nhập</dt>
-                <dd>{auth.user.username}</dd>
-              </div>
-              <div>
-                <dt>Quyền</dt>
-                <dd>Quản trị viên</dd>
-              </div>
-              <div>
-                <dt>Mã tài khoản</dt>
-                <dd>{auth.user.id}</dd>
-              </div>
-            </dl>
+            <h2>Hàng chờ biên tập</h2>
+            <p>Các bài mới nhất cần phân loại và duyệt.</p>
           </div>
-          <div className="connection-panel">
-            <h3>Kiểm tra phiên</h3>
-            <p className="muted">Xác nhận tài khoản vẫn có quyền truy cập trên máy chủ.</p>
-            <button className="primary-button" onClick={verify} disabled={check.pending}>
-              {check.pending ? 'Đang kiểm tra…' : 'Kiểm tra kết nối'}
-            </button>
-            {check.message && (
-              <p
-                className={check.error ? 'field-error' : 'success-message'}
-                role={check.error ? 'alert' : 'status'}
-              >
-                {check.message}
-              </p>
-            )}
-          </div>
-        </section>
-        <section className="next-section">
-          <p className="eyebrow">GIAI ĐOẠN TIẾP THEO</p>
-          <h2>Quản lý nội dung</h2>
-          <p className="muted">
-            Quản lý nguồn tin, duyệt bài và biên tập sự kiện kinh tế có nguồn tham chiếu.
-          </p>
-          <Link className="primary-button" to="/admin/sources">
-            Quản lý nguồn tin & RSS
+          <Link className="secondary-button" to="/admin/articles">
+            Xem tất cả <WorkspaceIcon name="arrow" size={16} />
           </Link>
-          <div className="catalog-actions">
-            <Link className="secondary-button" to="/admin/articles">
-              Duyệt bài
-            </Link>
-            <Link className="secondary-button" to="/admin/events">
-              Quản lý sự kiện
-            </Link>
-            <Link className="secondary-button" to="/admin/documents">
-              Tài liệu tham chiếu
-            </Link>
-            <Link to="/events">Trang công khai</Link>
-          </div>
-        </section>
-      </main>
-    </div>
-  )
+        </header>
+        {!results && (
+          <p className="dashboard-empty" role="status">
+            Đang tải hàng chờ…
+          </p>
+        )}
+        {pendingResult?.status === "fulfilled" && !pending.length && (
+          <p className="dashboard-empty">Hàng chờ hiện chưa có bài.</p>
+        )}
+        {pending.length > 0 && (
+          <ul className="dashboard-queue">
+            {pending.map((article) => (
+              <li key={article.id}>
+                <span className="dashboard-icon blue">
+                  <WorkspaceIcon name="article" size={17} />
+                </span>
+                <Link to={`/admin/articles/${article.id}`}>
+                  <strong>{article.title}</strong>
+                  <small>{article.sourceName}</small>
+                </Link>
+                <span className="dashboard-pending">Chờ duyệt</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </main>
+  );
 }
