@@ -1,6 +1,7 @@
 package com.econnews.event.adapter.in.web;
 
 import com.econnews.event.adapter.in.web.response.EventResponses.*;
+import com.econnews.event.adapter.in.web.response.EventMessages;
 import com.econnews.event.application.ManageEvents;
 import com.econnews.shared.adapter.web.response.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,11 +22,12 @@ public class PublicEventsController {
     public ResponseEntity<?> list(
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size,
+        @RequestParam(required = false) String contentType,
         HttpServletRequest request
     ) {
-        var result = events.list("PUBLISHED", page, size, true);
+        var result = events.listPublished(contentType, page, size);
         return ApiResponses.page(
-            "Sự kiện kinh tế.",
+            EventMessages.PUBLIC_LIST,
             result.items().stream().map(PublicSummary::from).toList(),
             PageMeta.of(page, size, result.total()),
             request
@@ -35,7 +37,7 @@ public class PublicEventsController {
     @GetMapping("/{id}")
     public ResponseEntity<?> detail(@PathVariable long id, HttpServletRequest request) {
         return ApiResponses.ok(
-            "Diễn biến sự kiện.",
+            EventMessages.PUBLIC_DETAIL,
             PublicDetail.from(events.detail(id, true)),
             request
         );
@@ -44,7 +46,7 @@ public class PublicEventsController {
     @GetMapping("/{id}/milestones")
     public ResponseEntity<?> milestones(@PathVariable long id, HttpServletRequest request) {
         return ApiResponses.ok(
-            "Các mốc diễn biến.",
+            EventMessages.PUBLIC_MILESTONES,
             PublicDetail.from(events.detail(id, true)).milestones(),
             request
         );
@@ -53,7 +55,7 @@ public class PublicEventsController {
     @GetMapping("/{id}/articles")
     public ResponseEntity<?> articles(@PathVariable long id, HttpServletRequest request) {
         return ApiResponses.ok(
-            "Bài viết được trích dẫn.",
+            EventMessages.PUBLIC_ARTICLES,
             PublicDetail.from(events.detail(id, true)).sources("ARTICLE"),
             request
         );
@@ -62,7 +64,7 @@ public class PublicEventsController {
     @GetMapping("/{id}/documents")
     public ResponseEntity<?> documents(@PathVariable long id, HttpServletRequest request) {
         return ApiResponses.ok(
-            "Tài liệu được trích dẫn.",
+            EventMessages.PUBLIC_DOCUMENTS,
             PublicDetail.from(events.detail(id, true)).sources("DOCUMENT"),
             request
         );

@@ -1,5 +1,6 @@
 package com.econnews.source.adapter.in.web;
 
+import com.econnews.source.adapter.in.web.response.CatalogMessages;
 import com.econnews.shared.adapter.web.response.*;
 import com.econnews.source.adapter.in.web.request.CatalogRequests.*;
 import com.econnews.source.adapter.in.web.response.CatalogResponses.*;
@@ -28,7 +29,7 @@ public class SourceCatalogController {
     ) {
         var result = service.sources(page, size);
         return ApiResponses.page(
-            "Danh sách nguồn tin.",
+            CatalogMessages.SOURCE_LIST,
             result.items().stream().map(Source::from).toList(),
             PageMeta.of(page, size, result.total()),
             req
@@ -37,14 +38,14 @@ public class SourceCatalogController {
 
     @GetMapping("/{id}")
     public ResponseEntity<?> detail(@PathVariable long id, HttpServletRequest req) {
-        return ApiResponses.ok("Thông tin nguồn tin.", Source.from(service.source(id)), req);
+        return ApiResponses.ok(CatalogMessages.SOURCE_DETAIL, Source.from(service.source(id)), req);
     }
 
     @PostMapping
     public ResponseEntity<?> create(@Valid @RequestBody CreateSource b, HttpServletRequest req) {
         var s = Source.from(service.createSource(b.code(), b.name(), b.websiteUrl(), b.enabled()));
         return ApiResponses.created(
-            "Đã tạo nguồn tin.",
+            CatalogMessages.SOURCE_CREATED,
             s,
             URI.create("/api/v1/admin/sources/" + s.id()),
             req
@@ -58,7 +59,7 @@ public class SourceCatalogController {
         HttpServletRequest req
     ) {
         return ApiResponses.ok(
-            "Đã cập nhật nguồn tin.",
+            CatalogMessages.SOURCE_UPDATED,
             Source.from(
                 service.updateSource(id, b.name(), b.websiteUrl(), b.enabled(), b.version())
             ),
@@ -75,7 +76,7 @@ public class SourceCatalogController {
     ) {
         var result = service.feeds(sourceId, page, size);
         return ApiResponses.page(
-            "Danh sách kênh RSS.",
+            CatalogMessages.FEED_LIST,
             result.items().stream().map(Feed::from).toList(),
             PageMeta.of(page, size, result.total()),
             req
@@ -88,7 +89,7 @@ public class SourceCatalogController {
         @PathVariable long id,
         HttpServletRequest req
     ) {
-        return ApiResponses.ok("Thông tin kênh RSS.", Feed.from(service.feed(sourceId, id)), req);
+        return ApiResponses.ok(CatalogMessages.FEED_DETAIL, Feed.from(service.feed(sourceId, id)), req);
     }
 
     @PostMapping("/{sourceId}/feeds")
@@ -99,7 +100,7 @@ public class SourceCatalogController {
     ) {
         var f = Feed.from(service.createFeed(sourceId, b.name(), b.url(), b.enabled()));
         return ApiResponses.created(
-            "Đã tạo kênh RSS.",
+            CatalogMessages.FEED_CREATED,
             f,
             URI.create("/api/v1/admin/sources/" + sourceId + "/feeds/" + f.id()),
             req
@@ -114,7 +115,7 @@ public class SourceCatalogController {
         HttpServletRequest req
     ) {
         return ApiResponses.ok(
-            "Đã cập nhật kênh RSS.",
+            CatalogMessages.FEED_UPDATED,
             Feed.from(
                 service.updateFeed(sourceId, id, b.name(), b.url(), b.enabled(), b.version())
             ),

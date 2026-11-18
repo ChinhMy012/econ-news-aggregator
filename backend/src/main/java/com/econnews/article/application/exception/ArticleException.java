@@ -2,20 +2,14 @@ package com.econnews.article.application.exception;
 
 public class ArticleException extends RuntimeException {
 
-    private final int status;
-    private final String code;
+    private final ArticleError error;
 
-    public ArticleException(int status, String code, String message) {
-        super(message);
-        this.status = status;
-        this.code = code;
+    public ArticleException(ArticleError error) {
+        super(error.name());
+        this.error = error;
     }
 
-    public int status() {
-        return status;
-    }
-
-    public String code() {
-        return code;
+    public ArticleError error() {
+        return error;
     }
 }

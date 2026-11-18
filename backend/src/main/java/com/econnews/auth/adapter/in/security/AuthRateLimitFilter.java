@@ -3,7 +3,7 @@ package com.econnews.auth.adapter.in.security;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import org.springframework.http.HttpStatus;
+import com.econnews.auth.adapter.in.web.response.AuthErrorResponses;
 import org.springframework.web.filter.OncePerRequestFilter;
 import com.econnews.bootstrap.config.AuthRateLimitProperties;
 import jakarta.servlet.FilterChain;
@@ -32,9 +32,8 @@ public final class AuthRateLimitFilter extends OncePerRequestFilter {
                 login ? properties.loginRequests() : properties.refreshRequests());
         if (retry > 0) {
             response.setHeader("Retry-After", Long.toString(retry));
-            writer.write(request, response, HttpStatus.TOO_MANY_REQUESTS,
-                    login ? "LOGIN_RATE_LIMITED" : "REFRESH_RATE_LIMITED",
-                    "Bạn gửi quá nhiều yêu cầu. Vui lòng thử lại sau.");
+            var failure = login ? AuthErrorResponses.LOGIN_RATE_LIMITED : AuthErrorResponses.REFRESH_RATE_LIMITED;
+            writer.write(request, response, failure.status(), failure.code(), failure.message());
             return;
         }
         chain.doFilter(request, response);

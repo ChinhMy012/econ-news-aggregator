@@ -1,5 +1,21 @@
 package com.econnews.shared.adapter.web.error;
 
+import com.econnews.article.application.exception.ArticleException;
+import com.econnews.article.adapter.in.web.response.ArticleErrorResponses;
+import com.econnews.source.application.exception.CatalogException;
+import com.econnews.source.adapter.in.web.response.CatalogErrorResponses;
+import com.econnews.collection.application.exception.CollectionException;
+import com.econnews.collection.adapter.in.web.response.CollectionErrorResponses;
+import com.econnews.document.application.exception.DocumentException;
+import com.econnews.document.adapter.in.web.response.DocumentErrorResponses;
+import com.econnews.event.application.exception.EventException;
+import com.econnews.event.adapter.in.web.response.EventErrorResponse;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.web.method.HandlerMethod;
+import com.econnews.document.adapter.in.web.DocumentController;
+import com.econnews.source.adapter.in.web.SourceCatalogController;
+
+import com.econnews.auth.adapter.in.web.response.AuthErrorResponses;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +42,46 @@ import com.econnews.shared.application.exception.BusinessRuleException;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler({
+        ArticleException.class,
+        CatalogException.class,
+        CollectionException.class,
+        DocumentException.class,
+        EventException.class
+    })
+    public ResponseEntity<Object> handleModuleError(RuntimeException exception, WebRequest request) {
+        ErrorDefinition response = switch (exception) {
+            case ArticleException error -> ArticleErrorResponses.from(error.error());
+            case CatalogException error -> CatalogErrorResponses.from(error.error());
+            case CollectionException error -> CollectionErrorResponses.from(error.error());
+            case DocumentException error -> DocumentErrorResponses.from(error.error());
+            case EventException error -> EventErrorResponse.from(error);
+            default -> throw exception;
+        };
+        HttpHeaders headers = new HttpHeaders();
+        if (exception instanceof CollectionException && response.status() == HttpStatus.TOO_MANY_REQUESTS) {
+            headers.set(HttpHeaders.RETRY_AFTER, "30");
+        }
+        return buildResponse(response.code(), response.message(), List.of(), response.status(), headers, request);
+    }
+
+    @ExceptionHandler(DuplicateKeyException.class)
+    public ResponseEntity<Object> handleDuplicateKey(
+            DuplicateKeyException exception, HandlerMethod handler, WebRequest request) {
+        Class<?> controller = handler.getBeanType();
+        if (SourceCatalogController.class.isAssignableFrom(controller)) {
+            return moduleResponse(CatalogErrorResponses.DUPLICATE, request);
+        }
+        if (DocumentController.class.isAssignableFrom(controller)) {
+            return moduleResponse(DocumentErrorResponses.DUPLICATE, request);
+        }
+        return handleUnexpected(exception, request);
+    }
+
+    private ResponseEntity<Object> moduleResponse(ErrorDefinition response, WebRequest request) {
+        return buildResponse(response.code(), response.message(), List.of(), response.status(), HttpHeaders.EMPTY, request);
+    }
 
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<Object> handleBusinessRule(
@@ -138,22 +194,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(InvalidCredentialsException.class)
-    public ResponseEntity<Object> handleInvalidCredentials(
-            InvalidCredentialsException exception,
-            WebRequest request) {
-
-        return buildResponse(
-                "INVALID_CREDENTIALS",
-                exception.getMessage(),
-                List.of(),
-                HttpStatus.UNAUTHORIZED,
-                HttpHeaders.EMPTY,
-                request);
+    public ResponseEntity<Object> handleInvalidCredentials(WebRequest request) {
+        return moduleResponse(AuthErrorResponses.INVALID_CREDENTIALS, request);
     }
 
     @ExceptionHandler(AdminUnavailableException.class)
-    public ResponseEntity<Object> handleAdminUnavailable(AdminUnavailableException exception, WebRequest request) {
-        return buildResponse("AUTHENTICATION_REQUIRED", exception.getMessage(), List.of(),
-                HttpStatus.UNAUTHORIZED, HttpHeaders.EMPTY, request);
+    public ResponseEntity<Object> handleAdminUnavailable(WebRequest request) {
+        return moduleResponse(AuthErrorResponses.ADMIN_UNAVAILABLE, request);
     }
 }

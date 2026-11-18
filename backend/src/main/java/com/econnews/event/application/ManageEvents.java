@@ -1,5 +1,6 @@
 package com.econnews.event.application;
 
+import com.econnews.event.application.exception.EventError;
 import com.econnews.event.application.exception.EventException;
 import com.econnews.event.application.model.*;
 import com.econnews.event.application.model.EventCommands.*;
@@ -25,12 +26,16 @@ public class ManageEvents {
     public EventRepository.Slice list(String status, int page, int size, boolean publicOnly) {
         paging(page, size);
         String filter = publicOnly ? "PUBLISHED" : ("ALL".equals(status) ? null : status);
-        if (filter != null && !Set.of("DRAFT", "PUBLISHED", "HIDDEN").contains(filter)) throw error(
-            400,
-            "INVALID_EVENT_STATUS",
-            "Trạng thái sự kiện không hợp lệ."
-        );
-        return tx.read(() -> repo.list(filter, page, size));
+        if (filter != null && !Set.of("DRAFT", "PUBLISHED", "HIDDEN").contains(filter)) throw new EventException(EventError.INVALID_EVENT_STATUS);
+        return tx.read(() -> repo.list(filter, null, page, size));
+    }
+
+    public EventRepository.Slice listPublished(String contentType, int page, int size) {
+        paging(page, size);
+        if (contentType != null && !Set.of("POLICY", "BUSINESS").contains(contentType)) {
+            throw new EventException(EventError.INVALID_CONTENT_TYPE);
+        }
+        return tx.read(() -> repo.list("PUBLISHED", contentType, page, size));
     }
 
     public EventView detail(long id, boolean publicOnly) {
@@ -68,35 +73,31 @@ public class ManageEvents {
     public EventView edit(long id, long version, EventDraft draft) {
         var clean = eventDraft(draft);
         return change(id, version, event -> {
-            if (event.status().equals("PUBLISHED") && clean.overview().isBlank()) throw error(
-                409,
-                "EVENT_OVERVIEW_REQUIRED",
-                "Sự kiện công khai phải có tổng quan."
-            );
+            if (event.status().equals("PUBLISHED") && clean.overview().isBlank()) throw new EventException(EventError.EVENT_OVERVIEW_REQUIRED);
             repo.edit(id, clean.title(), clean.contentType(), clean.overview());
         });
     }
 
     public EventView publish(long id, long version) {
-        return change(id, version, event -> {
-            if (event.status().equals("PUBLISHED")) throw error(
-                409,
-                "INVALID_EVENT_STATE",
-                "Sự kiện đã công khai."
-            );
-            validate(event, true);
+        return tx.write(() -> {
+            refs.lock();
+            EconomicEvent event = find(id);
+            checkVersion(event, version);
+            if (event.status().equals("PUBLISHED")) {
+                throw new EventException(EventError.EVENT_ALREADY_PUBLISHED);
+            }
+
+            checkReadyForPublication(view(event));
             repo.status(id, "PUBLISHED", null);
+            if (!repo.bump(id, version)) throw conflict();
+            return view(find(id));
         });
     }
 
     public EventView hide(long id, long version, String reason) {
         String clean = text(reason, 1000, true, "Lý do ẩn");
         return change(id, version, event -> {
-            if (!event.status().equals("PUBLISHED")) throw error(
-                409,
-                "INVALID_EVENT_STATE",
-                "Chỉ ẩn sự kiện đang công khai."
-            );
+            if (!event.status().equals("PUBLISHED")) throw new EventException(EventError.EVENT_NOT_PUBLISHED);
             repo.status(id, "HIDDEN", clean);
         });
     }
@@ -104,11 +105,7 @@ public class ManageEvents {
     public EventView createMilestone(long eventId, long version, MilestoneDraft draft) {
         var clean = milestoneDraft(draft);
         return change(eventId, version, event -> {
-            if (repo.milestones(eventId).size() >= 100) throw error(
-                400,
-                "MILESTONE_LIMIT",
-                "MVP hỗ trợ tối đa 100 mốc cho một sự kiện."
-            );
+            if (repo.milestones(eventId).size() >= 100) throw new EventException(EventError.MILESTONE_LIMIT);
             repo.createMilestone(
                 eventId,
                 clean.title(),
@@ -132,7 +129,7 @@ public class ManageEvents {
             var milestone = milestone(eventId, milestoneId);
             if (
                 milestone.status().equals("PUBLISHED") && clean.description().isBlank()
-            ) throw error(409, "MILESTONE_CONTENT_REQUIRED", "Mốc công khai phải có nội dung.");
+            ) throw new EventException(EventError.MILESTONE_CONTENT_REQUIRED);
             repo.editMilestone(
                 milestoneId,
                 clean.title(),
@@ -155,11 +152,7 @@ public class ManageEvents {
             var milestone = milestone(eventId, milestoneId);
             if (publish) validateMilestone(milestone);
             String status = publish ? "PUBLISHED" : "DRAFT";
-            if (milestone.status().equals(status)) throw error(
-                409,
-                "INVALID_MILESTONE_STATE",
-                "Mốc đã ở trạng thái được yêu cầu."
-            );
+            if (milestone.status().equals(status)) throw new EventException(EventError.INVALID_MILESTONE_STATE);
             repo.milestoneStatus(milestoneId, status);
         });
     }
@@ -173,23 +166,15 @@ public class ManageEvents {
     ) {
         if (
             articleIds == null || documentIds == null || articleIds.size() + documentIds.size() > 50
-        ) throw error(400, "INVALID_SOURCES", "Chọn tối đa 50 nguồn cho tổng quan hoặc một mốc.");
+        ) throw new EventException(EventError.TOO_MANY_SOURCES);
         var articles = ids(articleIds);
         var documents = ids(documentIds);
         return change(eventId, version, event -> {
             if (milestoneId != null) milestone(eventId, milestoneId);
             for (long id : articles)
-                if (!repo.usableArticle(id)) throw error(
-                    409,
-                    "SOURCE_NOT_USABLE",
-                    "Bài làm nguồn phải tồn tại và đã công khai."
-                );
+                if (!repo.usableArticle(id)) throw new EventException(EventError.ARTICLE_NOT_USABLE);
             for (long id : documents)
-                if (!repo.usableDocument(id)) throw error(
-                    409,
-                    "SOURCE_NOT_USABLE",
-                    "Tài liệu làm nguồn phải tồn tại và đang bật."
-                );
+                if (!repo.usableDocument(id)) throw new EventException(EventError.DOCUMENT_NOT_USABLE);
             repo.replaceCitations(eventId, milestoneId, articles, documents);
         });
     }
@@ -198,61 +183,65 @@ public class ManageEvents {
         return tx.write(() -> {
             refs.lock();
             var event = find(id);
-            if (version < 0) throw error(400, "INVALID_VERSION", "version phải từ 0.");
-            if (event.version() != version) throw conflict();
+            checkVersion(event, version);
             work.accept(event);
-            validate(find(id), false);
+            EventView updated = view(find(id));
+            if (updated.event().status().equals("PUBLISHED")) {
+                checkReadyForPublication(updated);
+            } else {
+                checkPublishedMilestones(updated);
+            }
             if (!repo.bump(id, version)) throw conflict();
-            return view(find(id));
+            return new EventView(find(id), updated.overviewSources(), updated.milestones());
         });
     }
 
-    private void validate(EconomicEvent event, boolean forcePublished) {
-        var milestones = repo.milestones(event.id());
-        for (var milestone : milestones)
-            if (milestone.status().equals("PUBLISHED")) validateMilestone(milestone);
-        if (forcePublished || event.status().equals("PUBLISHED")) {
-            if (event.overview().isBlank()) throw error(
-                409,
-                "EVENT_OVERVIEW_REQUIRED",
-                "Sự kiện công khai phải có tổng quan."
-            );
-            if (repo.citations(event.id(), null).stream().noneMatch(Citation::usable)) throw error(
-                409,
-                "EVENT_SOURCE_REQUIRED",
-                "Tổng quan sự kiện phải có ít nhất một nguồn sử dụng được."
-            );
-            if (milestones.stream().noneMatch(m -> m.status().equals("PUBLISHED"))) throw error(
-                409,
-                "EVENT_MILESTONE_REQUIRED",
-                "Sự kiện phải có ít nhất một mốc công khai."
-            );
+    private void checkVersion(EconomicEvent event, long version) {
+        if (version < 0) throw new EventException(EventError.INVALID_VERSION);
+        if (event.version() != version) throw conflict();
+    }
+
+    private void checkReadyForPublication(EventView view) {
+        checkPublishedMilestones(view);
+        if (view.event().overview().isBlank()) {
+            throw new EventException(EventError.EVENT_OVERVIEW_REQUIRED);
+        }
+        if (view.overviewSources().stream().noneMatch(Citation::usable)) {
+            throw new EventException(EventError.EVENT_SOURCE_REQUIRED);
+        }
+        if (view.milestones().stream().noneMatch(m -> m.milestone().status().equals("PUBLISHED"))) {
+            throw new EventException(EventError.EVENT_MILESTONE_REQUIRED);
+        }
+    }
+
+    private void checkPublishedMilestones(EventView view) {
+        for (var item : view.milestones()) {
+            if (item.milestone().status().equals("PUBLISHED")) {
+                checkMilestoneContent(item.milestone(), item.sources());
+            }
         }
     }
 
     private void validateMilestone(Milestone milestone) {
-        if (milestone.description().isBlank()) throw error(
-            409,
-            "MILESTONE_CONTENT_REQUIRED",
-            "Mốc công khai phải có nội dung."
-        );
-        if (
-            repo.citations(milestone.eventId(), milestone.id()).stream().noneMatch(Citation::usable)
-        ) throw error(
-            409,
-            "MILESTONE_SOURCE_REQUIRED",
-            "Mốc công khai phải có ít nhất một nguồn sử dụng được."
-        );
+        checkMilestoneContent(milestone, repo.citations(milestone.eventId(), milestone.id()));
+    }
+
+    private void checkMilestoneContent(Milestone milestone, List<Citation> sources) {
+        if (milestone.description().isBlank()) {
+            throw new EventException(EventError.MILESTONE_CONTENT_REQUIRED);
+        }
+        if (sources.stream().noneMatch(Citation::usable)) {
+            throw new EventException(EventError.MILESTONE_SOURCE_REQUIRED);
+        }
     }
 
     private EventView view(EconomicEvent event) {
+        var sources = repo.milestoneCitations(event.id());
         return new EventView(
             event,
             repo.citations(event.id(), null),
-            repo
-                .milestones(event.id())
-                .stream()
-                .map(m -> new EventView.MilestoneView(m, repo.citations(event.id(), m.id())))
+            repo.milestones(event.id()).stream()
+                .map(m -> new EventView.MilestoneView(m, sources.getOrDefault(m.id(), List.of())))
                 .toList()
         );
     }
@@ -266,11 +255,7 @@ public class ManageEvents {
     }
 
     private List<Long> ids(List<Long> values) {
-        if (values.stream().anyMatch(id -> id == null || id <= 0)) throw error(
-            400,
-            "INVALID_SOURCES",
-            "Mã nguồn tham chiếu phải là số dương."
-        );
+        if (values.stream().anyMatch(id -> id == null || id <= 0)) throw new EventException(EventError.INVALID_SOURCE_ID);
         return List.copyOf(new LinkedHashSet<>(values));
     }
 
@@ -278,7 +263,7 @@ public class ManageEvents {
         if (
             d == null ||
             !Set.of("POLICY", "BUSINESS").contains(d.contentType() == null ? "" : d.contentType())
-        ) throw error(400, "INVALID_CONTENT_TYPE", "Phân loại chỉ nhận POLICY hoặc BUSINESS.");
+        ) throw new EventException(EventError.INVALID_CONTENT_TYPE);
         return new EventDraft(
             text(d.title(), 300, true, "Tiêu đề"),
             d.contentType(),
@@ -287,7 +272,7 @@ public class ManageEvents {
     }
 
     private MilestoneDraft milestoneDraft(MilestoneDraft d) {
-        if (d == null) throw error(400, "INVALID_MILESTONE_DATE", "Thiếu thông tin mốc.");
+        if (d == null) throw new EventException(EventError.MILESTONE_DATA_REQUIRED);
         try {
             if (d.dateYear() < 1 || d.dateYear() > 9999) throw new IllegalArgumentException();
             switch (d.datePrecision() == null ? "" : d.datePrecision()) {
@@ -304,11 +289,7 @@ public class ManageEvents {
                 default -> throw new IllegalArgumentException();
             }
         } catch (RuntimeException e) {
-            throw error(
-                400,
-                "INVALID_MILESTONE_DATE",
-                "Thời gian mốc không hợp lệ với độ chính xác đã chọn."
-            );
+            throw new EventException(EventError.INVALID_MILESTONE_DATE);
         }
         return new MilestoneDraft(
             text(d.title(), 300, true, "Tiêu đề mốc"),
@@ -322,35 +303,19 @@ public class ManageEvents {
 
     private String text(String value, int max, boolean required, String field) {
         String clean = value == null ? "" : value.strip();
-        if ((required && clean.isBlank()) || clean.length() > max) throw error(
-            400,
-            "INVALID_CONTENT",
-            field + " không hợp lệ hoặc vượt độ dài cho phép."
-        );
+        if ((required && clean.isBlank()) || clean.length() > max) throw new EventException(EventError.INVALID_CONTENT, field);
         return clean;
     }
 
     private void paging(int page, int size) {
-        if (page < 0 || size < 1 || size > 100) throw error(
-            400,
-            "INVALID_PAGINATION",
-            "page phải từ 0; size từ 1 đến 100."
-        );
+        if (page < 0 || size < 1 || size > 100) throw new EventException(EventError.INVALID_PAGINATION);
     }
 
     private EventException missing() {
-        return error(404, "RESOURCE_NOT_FOUND", "Không tìm thấy sự kiện hoặc mốc thuộc sự kiện.");
+        return new EventException(EventError.RESOURCE_NOT_FOUND);
     }
 
     private EventException conflict() {
-        return error(
-            409,
-            "VERSION_CONFLICT",
-            "Sự kiện đã thay đổi. Hãy tải lại dữ liệu trước khi thao tác."
-        );
-    }
-
-    private EventException error(int status, String code, String message) {
-        return new EventException(status, code, message);
+        return new EventException(EventError.VERSION_CONFLICT);
     }
 }

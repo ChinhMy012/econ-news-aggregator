@@ -2,20 +2,14 @@ package com.econnews.collection.application.exception;
 
 public class CollectionException extends RuntimeException {
 
-    private final int status;
-    private final String code;
+    private final CollectionError error;
 
-    public CollectionException(int status, String code, String message) {
-        super(message);
-        this.status = status;
-        this.code = code;
+    public CollectionException(CollectionError error) {
+        super(error.name());
+        this.error = error;
     }
 
-    public int status() {
-        return status;
-    }
-
-    public String code() {
-        return code;
+    public CollectionError error() {
+        return error;
     }
 }

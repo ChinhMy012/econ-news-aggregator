@@ -1,7 +1,7 @@
 package com.econnews.auth.adapter.in.security;
 
 import java.io.IOException;
-import org.springframework.http.HttpStatus;
+import com.econnews.auth.adapter.in.web.response.AuthErrorResponses;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.csrf.CsrfException;
@@ -19,9 +19,7 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
             AccessDeniedException exception) throws IOException {
         boolean csrf = exception instanceof CsrfException;
         if (!csrf) response.setHeader("WWW-Authenticate", "Bearer error=\"insufficient_scope\"");
-        writer.write(request, response, HttpStatus.FORBIDDEN,
-                csrf ? "CSRF_INVALID" : "FORBIDDEN",
-                csrf ? "Thông tin bảo vệ CSRF thiếu hoặc không hợp lệ."
-                     : "Bạn không được phép thực hiện yêu cầu.");
+        var failure = csrf ? AuthErrorResponses.CSRF_INVALID : AuthErrorResponses.FORBIDDEN;
+        writer.write(request, response, failure.status(), failure.code(), failure.message());
     }
 }

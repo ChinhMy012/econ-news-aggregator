@@ -2,20 +2,24 @@ package com.econnews.event.application.exception;
 
 public class EventException extends RuntimeException {
 
-    private final int status;
-    private final String code;
+    private final EventError error;
+    private final String field;
 
-    public EventException(int status, String code, String message) {
-        super(message);
-        this.status = status;
-        this.code = code;
+    public EventException(EventError error) {
+        this(error, null);
     }
 
-    public int status() {
-        return status;
+    public EventException(EventError error, String field) {
+        super(error.name());
+        this.error = error;
+        this.field = field;
     }
 
-    public String code() {
-        return code;
+    public EventError error() {
+        return error;
+    }
+
+    public String field() {
+        return field;
     }
 }

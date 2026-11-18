@@ -1,5 +1,6 @@
 package com.econnews.document.application;
 
+import com.econnews.document.application.exception.DocumentError;
 import com.econnews.document.application.exception.DocumentException;
 import com.econnews.document.domain.model.ReferenceDocument;
 import com.econnews.document.domain.repository.DocumentRepository;
@@ -25,18 +26,14 @@ public class ManageDocuments {
     }
 
     public DocumentRepository.Slice list(int page, int size) {
-        if (page < 0 || size < 1 || size > 100) throw error(
-            400,
-            "INVALID_PAGINATION",
-            "page phải từ 0; size từ 1 đến 100."
-        );
+        if (page < 0 || size < 1 || size > 100) throw new DocumentException(DocumentError.INVALID_PAGINATION);
         return tx.read(() -> repo.list(page, size));
     }
 
     public ReferenceDocument detail(long id) {
         return repo
             .find(id)
-            .orElseThrow(() -> error(404, "RESOURCE_NOT_FOUND", "Không tìm thấy tài liệu."));
+            .orElseThrow(() -> new DocumentException(DocumentError.RESOURCE_NOT_FOUND));
     }
 
     public ReferenceDocument create(
@@ -68,31 +65,15 @@ public class ManageDocuments {
         return tx.write(() -> {
             refs.lock();
             var old = detail(id);
-            if (old.version() != version) throw error(
-                409,
-                "VERSION_CONFLICT",
-                "Tài liệu đã thay đổi. Hãy tải lại dữ liệu."
-            );
-            if (!enabled && old.enabled() && refs.documentIsEssential(id)) throw error(
-                409,
-                "SOURCE_REQUIRED",
-                "Không thể tắt tài liệu là nguồn cuối cùng của nội dung công khai."
-            );
-            if (!repo.update(id, version, name, publisher, issuedOn, enabled)) throw error(
-                409,
-                "VERSION_CONFLICT",
-                "Tài liệu đã thay đổi. Hãy tải lại dữ liệu."
-            );
+            if (old.version() != version) throw new DocumentException(DocumentError.VERSION_CONFLICT);
+            if (!enabled && old.enabled() && refs.documentIsEssential(id)) throw new DocumentException(DocumentError.SOURCE_REQUIRED);
+            if (!repo.update(id, version, name, publisher, issuedOn, enabled)) throw new DocumentException(DocumentError.VERSION_CONFLICT);
             return detail(id);
         });
     }
 
     private String text(String value, int max) {
-        if (value == null || value.isBlank() || value.strip().length() > max) throw error(
-            400,
-            "INVALID_DOCUMENT",
-            "Tên và cơ quan ban hành bắt buộc, trong giới hạn độ dài."
-        );
+        if (value == null || value.isBlank() || value.strip().length() > max) throw new DocumentException(DocumentError.INVALID_DOCUMENT);
         return value.strip();
     }
 
@@ -116,15 +97,8 @@ public class ManageDocuments {
             if (result.length() > 2048) throw new IllegalArgumentException();
             return result;
         } catch (RuntimeException e) {
-            throw error(
-                400,
-                "INVALID_DOCUMENT_URL",
-                "URL tài liệu phải là HTTPS hợp lệ, tối đa 2048 ký tự và không chứa tài khoản/fragment."
-            );
+            throw new DocumentException(DocumentError.INVALID_DOCUMENT_URL);
         }
     }
 
-    private DocumentException error(int status, String code, String message) {
-        return new DocumentException(status, code, message);
-    }
 }

@@ -6,7 +6,7 @@ import java.util.*;
 public interface EventRepository {
     record Slice(List<EconomicEvent> items, long total) {}
 
-    Slice list(String status, int page, int size);
+    Slice list(String status, String contentType, int page, int size);
     Optional<EconomicEvent> find(long id);
     EconomicEvent create(String title, String contentType, String overview);
     void edit(long id, String title, String contentType, String overview);
@@ -35,6 +35,8 @@ public interface EventRepository {
     void milestoneStatus(long id, String status);
     boolean usableArticle(long id);
     boolean usableDocument(long id);
+    Map<Long, List<Citation>> milestoneCitations(long eventId);
+
     List<Citation> citations(long eventId, Long milestoneId);
     void replaceCitations(
         long eventId,

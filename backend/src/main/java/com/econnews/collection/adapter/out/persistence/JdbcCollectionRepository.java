@@ -24,7 +24,7 @@ public class JdbcCollectionRepository implements CollectionRepository {
             rs.getLong("source_id"),
             rs.getLong("feed_id"),
             rs.getString("feed_url"),
-            rs.getLong("requested_by"),
+            rs.getObject("requested_by", Long.class),
             rs.getString("status"),
             rs.getInt("received_count"),
             rs.getInt("inserted_count"),
@@ -33,6 +33,26 @@ public class JdbcCollectionRepository implements CollectionRepository {
             rs.getString("error_code"),
             rs.getTimestamp("started_at").toInstant(),
             end == null ? null : end.toInstant()
+        );
+    }
+
+    public List<FeedKey> dueFeeds(Instant cutoff, int limit) {
+        return jdbc.query(
+            """
+            SELECT f.source_id, f.id
+            FROM rss_feeds f
+            JOIN news_sources s ON s.id = f.source_id
+            LEFT JOIN LATERAL (
+                SELECT started_at FROM collection_runs
+                WHERE feed_id = f.id ORDER BY id DESC LIMIT 1
+            ) last_run ON true
+            WHERE f.enabled AND s.enabled
+              AND (last_run.started_at IS NULL OR last_run.started_at <= ?)
+            ORDER BY last_run.started_at NULLS FIRST, f.id
+            LIMIT ?
+            """,
+            (rs, row) -> new FeedKey(rs.getLong("source_id"), rs.getLong("id")),
+            Timestamp.from(cutoff), limit
         );
     }
 
@@ -70,7 +90,7 @@ public class JdbcCollectionRepository implements CollectionRepository {
             .findFirst();
     }
 
-    public CollectionRun start(FeedTarget t, long requestedBy) {
+    public CollectionRun start(FeedTarget t, Long requestedBy) {
         return jdbc.queryForObject(
             "INSERT INTO collection_runs(source_id,feed_id,feed_url,requested_by) VALUES(?,?,?,?) RETURNING *",
             this::mapRun,

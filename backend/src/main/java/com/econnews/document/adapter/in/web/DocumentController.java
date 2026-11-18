@@ -1,5 +1,6 @@
 package com.econnews.document.adapter.in.web;
 
+import com.econnews.document.adapter.in.web.response.DocumentMessages;
 import com.econnews.document.adapter.in.web.request.DocumentRequests.*;
 import com.econnews.document.adapter.in.web.response.DocumentResponse;
 import com.econnews.document.application.ManageDocuments;
@@ -28,7 +29,7 @@ public class DocumentController {
     ) {
         var result = documents.list(page, size);
         return ApiResponses.page(
-            "Tài liệu tham chiếu.",
+            DocumentMessages.LIST,
             result.items().stream().map(DocumentResponse::from).toList(),
             PageMeta.of(page, size, result.total()),
             request
@@ -38,7 +39,7 @@ public class DocumentController {
     @GetMapping("/{id}")
     public ResponseEntity<?> detail(@PathVariable long id, HttpServletRequest request) {
         return ApiResponses.ok(
-            "Chi tiết tài liệu.",
+            DocumentMessages.DETAIL,
             DocumentResponse.from(documents.detail(id)),
             request
         );
@@ -56,7 +57,7 @@ public class DocumentController {
             )
         );
         return ApiResponses.created(
-            "Đã tạo tài liệu tham chiếu.",
+            DocumentMessages.CREATED,
             result,
             URI.create("/api/v1/admin/documents/" + result.id()),
             request
@@ -70,7 +71,7 @@ public class DocumentController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã cập nhật tài liệu.",
+            DocumentMessages.UPDATED,
             DocumentResponse.from(
                 documents.update(
                     id,

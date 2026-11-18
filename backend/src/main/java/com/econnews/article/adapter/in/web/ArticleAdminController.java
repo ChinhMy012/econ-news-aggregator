@@ -1,5 +1,6 @@
 package com.econnews.article.adapter.in.web;
 
+import com.econnews.article.adapter.in.web.response.ArticleMessages;
 import com.econnews.article.adapter.in.web.request.ArticleRequests.*;
 import com.econnews.article.adapter.in.web.response.AdminArticleResponse;
 import com.econnews.article.application.ManageArticles;
@@ -28,7 +29,7 @@ public class ArticleAdminController {
     ) {
         var result = articles.adminList(status, page, size);
         return ApiResponses.page(
-            "Danh sách bài viết quản trị.",
+            ArticleMessages.ADMIN_LIST,
             result.items().stream().map(AdminArticleResponse::from).toList(),
             PageMeta.of(page, size, result.total()),
             request
@@ -38,7 +39,7 @@ public class ArticleAdminController {
     @GetMapping("/{id}")
     public ResponseEntity<?> detail(@PathVariable long id, HttpServletRequest request) {
         return ApiResponses.ok(
-            "Chi tiết bài viết.",
+            ArticleMessages.ADMIN_DETAIL,
             AdminArticleResponse.from(articles.detail(id)),
             request
         );
@@ -51,7 +52,7 @@ public class ArticleAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã lưu phân loại.",
+            ArticleMessages.CLASSIFIED,
             AdminArticleResponse.from(articles.classify(id, body.contentType(), body.version())),
             request
         );
@@ -64,7 +65,7 @@ public class ArticleAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã duyệt và công khai bài viết.",
+            ArticleMessages.PUBLISHED,
             AdminArticleResponse.from(articles.publish(id, body.version())),
             request
         );
@@ -77,7 +78,7 @@ public class ArticleAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã loại bài viết.",
+            ArticleMessages.REJECTED,
             AdminArticleResponse.from(articles.reject(id, body.reason(), body.version())),
             request
         );
@@ -90,7 +91,7 @@ public class ArticleAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã ẩn bài viết.",
+            ArticleMessages.HIDDEN,
             AdminArticleResponse.from(articles.hide(id, body.reason(), body.version())),
             request
         );

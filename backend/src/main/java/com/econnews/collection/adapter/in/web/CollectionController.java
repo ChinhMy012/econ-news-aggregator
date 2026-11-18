@@ -1,5 +1,6 @@
 package com.econnews.collection.adapter.in.web;
 
+import com.econnews.collection.adapter.in.web.response.CollectionMessages;
 import com.econnews.collection.application.usecase.CollectFeed;
 import com.econnews.collection.domain.model.CollectionRun;
 import com.econnews.shared.adapter.web.response.*;
@@ -25,6 +26,7 @@ public class CollectionController {
         long sourceId,
         long feedId,
         String status,
+        String trigger,
         int receivedCount,
         int insertedCount,
         int duplicateCount,
@@ -39,6 +41,7 @@ public class CollectionController {
                 r.sourceId(),
                 r.feedId(),
                 r.status(),
+                r.requestedBy() == null ? "SCHEDULED" : "MANUAL",
                 r.receivedCount(),
                 r.insertedCount(),
                 r.duplicateCount(),
@@ -61,7 +64,7 @@ public class CollectionController {
             collect.collect(sourceId, feedId, Long.parseLong(jwt.getSubject()))
         );
         return ApiResponses.ok(
-            "Đã ghi nhận kết quả thu thập. Hãy xem trạng thái lần chạy.",
+            CollectionMessages.RUN_RECORDED,
             result,
             request
         );
@@ -77,7 +80,7 @@ public class CollectionController {
     ) {
         var result = collect.history(sourceId, feedId, page, size);
         return ApiResponses.page(
-            "Lịch sử thu thập.",
+            CollectionMessages.RUN_HISTORY,
             result.items().stream().map(RunResponse::from).toList(),
             PageMeta.of(page, size, result.total()),
             request

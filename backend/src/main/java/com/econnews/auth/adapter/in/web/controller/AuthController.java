@@ -1,8 +1,9 @@
 package com.econnews.auth.adapter.in.web.controller;
 
+import com.econnews.auth.adapter.in.web.response.AuthErrorResponses;
+import com.econnews.auth.adapter.in.web.response.AuthMessages;
 import java.util.List;
 import org.springframework.http.CacheControl;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -39,7 +40,7 @@ public class AuthController {
     @GetMapping("/csrf")
     public ResponseEntity<ApiSuccessResponse<CsrfResponse>> csrf(
             CsrfToken token, HttpServletRequest request) {
-        return noStore(ApiResponses.ok("Lấy thông tin CSRF thành công.",
+        return noStore(ApiResponses.ok(AuthMessages.CSRF,
                 new CsrfResponse(token.getToken(), token.getHeaderName()), request));
     }
     @PostMapping("/login")
@@ -47,34 +48,34 @@ public class AuthController {
             @Valid @RequestBody LoginRequest body, HttpServletRequest request,
             HttpServletResponse response) {
         var result = login.execute(new LoginCommand(body.username(), body.password()), cookies.read(request));
-        return authenticated(result, "Đăng nhập thành công.", request, response);
+        return authenticated(result, AuthMessages.LOGIN, request, response);
     }
     @PostMapping("/refresh")
     public ResponseEntity<ApiSuccessResponse<LoginResponse>> refresh(
             HttpServletRequest request, HttpServletResponse response) {
         return authenticated(refresh.execute(cookies.read(request)),
-                "Làm mới phiên đăng nhập thành công.", request, response);
+                AuthMessages.REFRESH, request, response);
     }
     @PostMapping("/logout")
     public ResponseEntity<ApiSuccessResponse<Void>> logout(
             HttpServletRequest request, HttpServletResponse response) {
         logout.execute(cookies.read(request));
         cookies.clear(response);
-        return noStore(ApiResponses.<Void>ok("Đăng xuất thành công.", null, request));
+        return noStore(ApiResponses.<Void>ok(AuthMessages.LOGOUT, null, request));
     }
     @GetMapping("/me")
     public ResponseEntity<ApiSuccessResponse<CurrentAdminResponse>> me(
             @AuthenticationPrincipal Jwt jwt, HttpServletRequest request) {
         var admin = currentAdmin.execute(Long.valueOf(jwt.getSubject()));
-        return noStore(ApiResponses.ok("Lấy thông tin quản trị thành công.",
+        return noStore(ApiResponses.ok(AuthMessages.CURRENT_ADMIN,
                 CurrentAdminResponse.from(admin), request));
     }
     @ExceptionHandler(InvalidRefreshTokenException.class)
-    public ResponseEntity<ApiErrorResponse> invalidRefresh(InvalidRefreshTokenException exception,
+    public ResponseEntity<ApiErrorResponse> invalidRefresh(
             HttpServletRequest request, HttpServletResponse response) {
         cookies.clear(response);
-        return noStore(ApiResponses.error(HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN",
-                exception.getMessage(), List.of(), request));
+        var error = AuthErrorResponses.INVALID_REFRESH_TOKEN;
+        return noStore(ApiResponses.error(error.status(), error.code(), error.message(), List.of(), request));
     }
     private ResponseEntity<ApiSuccessResponse<LoginResponse>> authenticated(LoginResult result,
             String message, HttpServletRequest request, HttpServletResponse response) {

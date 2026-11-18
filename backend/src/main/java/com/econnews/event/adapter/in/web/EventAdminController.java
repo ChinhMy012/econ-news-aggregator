@@ -2,6 +2,7 @@ package com.econnews.event.adapter.in.web;
 
 import com.econnews.event.adapter.in.web.request.EventRequests.*;
 import com.econnews.event.adapter.in.web.response.EventResponses.*;
+import com.econnews.event.adapter.in.web.response.EventMessages;
 import com.econnews.event.application.ManageEvents;
 import com.econnews.shared.adapter.web.response.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,7 +30,7 @@ public class EventAdminController {
     ) {
         var result = events.list(status, page, size, false);
         return ApiResponses.page(
-            "Danh sách sự kiện quản trị.",
+            EventMessages.ADMIN_LIST,
             result.items().stream().map(AdminSummary::from).toList(),
             PageMeta.of(page, size, result.total()),
             request
@@ -39,7 +40,7 @@ public class EventAdminController {
     @GetMapping("/{id}")
     public ResponseEntity<?> detail(@PathVariable long id, HttpServletRequest request) {
         return ApiResponses.ok(
-            "Chi tiết sự kiện.",
+            EventMessages.ADMIN_DETAIL,
             AdminDetail.from(events.detail(id, false)),
             request
         );
@@ -49,7 +50,7 @@ public class EventAdminController {
     public ResponseEntity<?> create(@Valid @RequestBody Create body, HttpServletRequest request) {
         var result = AdminDetail.from(events.create(body.command()));
         return ApiResponses.created(
-            "Đã tạo sự kiện nháp.",
+            EventMessages.CREATED,
             result,
             URI.create("/api/v1/admin/events/" + result.event().id()),
             request
@@ -63,7 +64,7 @@ public class EventAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã cập nhật sự kiện.",
+            EventMessages.UPDATED,
             AdminDetail.from(events.edit(id, body.version(), body.command())),
             request
         );
@@ -76,7 +77,7 @@ public class EventAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã công khai sự kiện.",
+            EventMessages.PUBLISHED,
             AdminDetail.from(events.publish(id, body.version())),
             request
         );
@@ -89,7 +90,7 @@ public class EventAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã ẩn sự kiện.",
+            EventMessages.HIDDEN,
             AdminDetail.from(events.hide(id, body.version(), body.reason())),
             request
         );
@@ -102,7 +103,7 @@ public class EventAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã cập nhật nguồn tổng quan.",
+            EventMessages.OVERVIEW_SOURCES_UPDATED,
             AdminDetail.from(
                 events.sources(id, null, body.version(), body.articleIds(), body.documentIds())
             ),
@@ -117,7 +118,7 @@ public class EventAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã thêm mốc nháp.",
+            EventMessages.MILESTONE_CREATED,
             AdminDetail.from(events.createMilestone(id, body.version(), body.command())),
             request
         );
@@ -131,7 +132,7 @@ public class EventAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã cập nhật mốc.",
+            EventMessages.MILESTONE_UPDATED,
             AdminDetail.from(events.editMilestone(id, milestoneId, body.version(), body.command())),
             request
         );
@@ -145,7 +146,7 @@ public class EventAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã cập nhật nguồn của mốc.",
+            EventMessages.MILESTONE_SOURCES_UPDATED,
             AdminDetail.from(
                 events.sources(
                     id,
@@ -167,7 +168,7 @@ public class EventAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã công khai mốc.",
+            EventMessages.MILESTONE_PUBLISHED,
             AdminDetail.from(events.milestoneStatus(id, milestoneId, body.version(), true)),
             request
         );
@@ -181,7 +182,7 @@ public class EventAdminController {
         HttpServletRequest request
     ) {
         return ApiResponses.ok(
-            "Đã chuyển mốc về nháp.",
+            EventMessages.MILESTONE_UNPUBLISHED,
             AdminDetail.from(events.milestoneStatus(id, milestoneId, body.version(), false)),
             request
         );

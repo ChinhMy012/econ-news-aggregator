@@ -7,7 +7,7 @@ public record CollectionRun(
     long sourceId,
     long feedId,
     String feedUrl,
-    long requestedBy,
+    Long requestedBy,
     String status,
     int receivedCount,
     int insertedCount,

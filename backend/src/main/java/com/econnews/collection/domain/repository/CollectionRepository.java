@@ -13,11 +13,14 @@ public interface CollectionRepository {
         boolean feedEnabled
     ) {}
 
+    record FeedKey(long sourceId, long feedId) {}
+
     record Slice<T>(List<T> items, long total) {}
 
+    List<FeedKey> dueFeeds(Instant cutoff, int limit);
     Optional<FeedTarget> lockFeed(long sourceId, long feedId);
     Optional<CollectionRun> latest(long feedId);
-    CollectionRun start(FeedTarget target, long requestedBy);
+    CollectionRun start(FeedTarget target, Long requestedBy);
     Optional<CollectionRun> run(long id);
     Slice<CollectionRun> runs(long sourceId, long feedId, int page, int size);
     CollectionRun finish(

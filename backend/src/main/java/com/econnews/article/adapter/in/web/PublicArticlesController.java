@@ -1,5 +1,6 @@
 package com.econnews.article.adapter.in.web;
 
+import com.econnews.article.adapter.in.web.response.ArticleMessages;
 import com.econnews.article.adapter.in.web.response.PublicArticleResponse;
 import com.econnews.article.application.ManageArticles;
 import com.econnews.shared.adapter.web.response.*;
@@ -26,7 +27,7 @@ public class PublicArticlesController {
     ) {
         var result = articles.publishedList(contentType, page, size);
         return ApiResponses.page(
-            "Bài viết đã công khai.",
+            ArticleMessages.PUBLIC_LIST,
             result.items().stream().map(PublicArticleResponse::from).toList(),
             PageMeta.of(page, size, result.total()),
             request
@@ -36,7 +37,7 @@ public class PublicArticlesController {
     @GetMapping("/{id}")
     public ResponseEntity<?> detail(@PathVariable long id, HttpServletRequest request) {
         return ApiResponses.ok(
-            "Chi tiết bài viết công khai.",
+            ArticleMessages.PUBLIC_DETAIL,
             PublicArticleResponse.from(articles.publishedDetail(id)),
             request
         );

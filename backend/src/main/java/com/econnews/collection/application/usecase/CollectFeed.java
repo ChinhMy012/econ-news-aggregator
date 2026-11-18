@@ -36,43 +36,32 @@ public class CollectFeed {
     }
 
     public CollectionRun collect(long sourceId, long feedId, long requestedBy) {
-        if (!capacity.tryAcquire()) throw new CollectionException(
-            429,
-            "COLLECTION_BUSY",
-            "Hệ thống đang thu thập hai kênh. Vui lòng thử lại sau."
-        );
+        return collect(sourceId, feedId, requestedBy, cooldown);
+    }
+
+    public CollectionRun collectScheduled(long sourceId, long feedId, Duration interval) {
+        Duration minimumGap = interval.compareTo(cooldown) < 0 ? cooldown : interval;
+        return collect(sourceId, feedId, null, minimumGap);
+    }
+
+    private CollectionRun collect(long sourceId, long feedId, Long requestedBy, Duration minimumGap) {
+        if (!capacity.tryAcquire()) throw new CollectionException(CollectionError.COLLECTION_BUSY);
         try {
             CollectionRun run = tx.execute(() -> {
                 runs.interruptStale(Instant.now().minus(Duration.ofMinutes(5)));
                 var target = runs
                     .lockFeed(sourceId, feedId)
                     .orElseThrow(() ->
-                        new CollectionException(
-                            404,
-                            "RESOURCE_NOT_FOUND",
-                            "Không tìm thấy kênh RSS của nguồn."
-                        )
+                        new CollectionException(CollectionError.RESOURCE_NOT_FOUND)
                     );
-                if (!target.sourceEnabled() || !target.feedEnabled()) throw new CollectionException(
-                    409,
-                    "FEED_DISABLED",
-                    "Nguồn tin hoặc kênh RSS đang tắt."
-                );
+                if (!target.sourceEnabled() || !target.feedEnabled()) throw new CollectionException(CollectionError.FEED_DISABLED);
                 runs
                     .latest(feedId)
                     .ifPresent(last -> {
-                        if (last.status().equals("RUNNING")) throw new CollectionException(
-                            409,
-                            "COLLECTION_ALREADY_RUNNING",
-                            "Kênh đang được thu thập."
-                        );
+                        if (last.status().equals("RUNNING")) throw new CollectionException(CollectionError.COLLECTION_ALREADY_RUNNING);
                         if (
-                            last.startedAt().plus(cooldown).isAfter(Instant.now())
-                        ) throw new CollectionException(
-                            429,
-                            "COLLECTION_COOLDOWN",
-                            "Vui lòng đợi thêm trước khi thu thập lại kênh."
-                        );
+                            last.startedAt().plus(minimumGap).isAfter(Instant.now())
+                        ) throw new CollectionException(CollectionError.COLLECTION_COOLDOWN);
                     });
                 return runs.start(target, requestedBy);
             });
@@ -132,20 +121,12 @@ public class CollectFeed {
         int page,
         int size
     ) {
-        if (page < 0 || size < 1 || size > 100) throw new CollectionException(
-            400,
-            "INVALID_PAGINATION",
-            "page phải từ 0; size từ 1 đến 100."
-        );
+        if (page < 0 || size < 1 || size > 100) throw new CollectionException(CollectionError.INVALID_PAGINATION);
         return tx.execute(() -> {
             runs
                 .lockFeed(sourceId, feedId)
                 .orElseThrow(() ->
-                    new CollectionException(
-                        404,
-                        "RESOURCE_NOT_FOUND",
-                        "Không tìm thấy kênh RSS của nguồn."
-                    )
+                    new CollectionException(CollectionError.RESOURCE_NOT_FOUND)
                 );
             return runs.runs(sourceId, feedId, page, size);
         });

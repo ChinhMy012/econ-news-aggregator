@@ -44,10 +44,14 @@ public class JdbcEventRepository implements EventRepository {
         );
     }
 
-    public Slice list(String status, int page, int size) {
+    public Slice list(String status, String contentType, int page, int size) {
         String where = status == null ? "" : " WHERE status=?";
         List<Object> args = new ArrayList<>();
         if (status != null) args.add(status);
+        if (contentType != null) {
+            where += status == null ? " WHERE content_type=?" : " AND content_type=?";
+            args.add(contentType);
+        }
         long total = jdbc.queryForObject(
             "SELECT count(*) FROM events" + where,
             Long.class,
@@ -196,6 +200,37 @@ public class JdbcEventRepository implements EventRepository {
                 id
             )
         );
+    }
+
+    public Map<Long, List<Citation>> milestoneCitations(long eventId) {
+        Map<Long, List<Citation>> byMilestone = new HashMap<>();
+        jdbc.query(
+            """
+            SELECT x.milestone_id, a.id, 'ARTICLE' AS kind, a.title, a.original_url AS url,
+                   s.name AS publisher, a.status = 'PUBLISHED' AS usable, 0 AS sort_kind
+            FROM milestone_articles x
+            JOIN articles a ON a.id = x.article_id
+            JOIN news_sources s ON s.id = a.source_id
+            WHERE x.event_id = ?
+            UNION ALL
+            SELECT x.milestone_id, d.id, 'DOCUMENT', d.title, d.url, d.issuer, d.enabled, 1
+            FROM milestone_documents x
+            JOIN documents d ON d.id = x.document_id
+            WHERE x.event_id = ?
+            ORDER BY milestone_id, sort_kind, id
+            """,
+            rs -> {
+                Citation citation = new Citation(
+                    rs.getLong("id"), rs.getString("kind"), rs.getString("title"),
+                    rs.getString("url"), rs.getString("publisher"), rs.getBoolean("usable")
+                );
+                byMilestone.computeIfAbsent(rs.getLong("milestone_id"), id -> new ArrayList<>())
+                    .add(citation);
+            },
+            eventId, eventId
+        );
+        byMilestone.replaceAll((id, sources) -> List.copyOf(sources));
+        return byMilestone;
     }
 
     public List<Citation> citations(long eventId, Long milestoneId) {

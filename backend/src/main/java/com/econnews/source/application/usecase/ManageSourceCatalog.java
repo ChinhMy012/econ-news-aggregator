@@ -1,5 +1,6 @@
 package com.econnews.source.application.usecase;
 
+import com.econnews.source.application.exception.CatalogError;
 import com.econnews.source.application.exception.CatalogException;
 import com.econnews.source.application.port.CatalogTransaction;
 import com.econnews.source.domain.model.*;
@@ -18,27 +19,15 @@ public class ManageSourceCatalog {
     }
 
     private CatalogException missing() {
-        return new CatalogException(
-            404,
-            "RESOURCE_NOT_FOUND",
-            "Không tìm thấy nguồn tin hoặc kênh RSS."
-        );
+        return new CatalogException(CatalogError.RESOURCE_NOT_FOUND);
     }
 
     private CatalogException conflict() {
-        return new CatalogException(
-            409,
-            "VERSION_CONFLICT",
-            "Dữ liệu đã thay đổi. Hãy tải lại trước khi sửa."
-        );
+        return new CatalogException(CatalogError.VERSION_CONFLICT);
     }
 
     private void paging(int page, int size) {
-        if (page < 0 || size < 1 || size > 100) throw new CatalogException(
-            400,
-            "INVALID_PAGINATION",
-            "page phải từ 0; size từ 1 đến 100."
-        );
+        if (page < 0 || size < 1 || size > 100) throw new CatalogException(CatalogError.INVALID_PAGINATION);
     }
 
     public SourceCatalog.Slice<NewsSource> sources(int page, int size) {
@@ -65,11 +54,7 @@ public class ManageSourceCatalog {
     public NewsSource createSource(String code, String name, String url, boolean enabled) {
         if (
             code == null || code.length() > 50 || !code.matches("[a-z0-9]+(-[a-z0-9]+)*")
-        ) throw new CatalogException(
-            400,
-            "INVALID_SOURCE_CODE",
-            "Mã nguồn gồm chữ thường, số và dấu gạch ngang; tối đa 50 ký tự."
-        );
+        ) throw new CatalogException(CatalogError.INVALID_SOURCE_CODE);
         String n = name(name),
             u = url(url);
         return tx.execute(() -> catalog.createSource(code, n, u, enabled));
@@ -116,11 +101,7 @@ public class ManageSourceCatalog {
     }
 
     private String name(String s) {
-        if (s == null || s.isBlank() || s.strip().length() > 200) throw new CatalogException(
-            400,
-            "INVALID_NAME",
-            "Tên bắt buộc và tối đa 200 ký tự."
-        );
+        if (s == null || s.isBlank() || s.strip().length() > 200) throw new CatalogException(CatalogError.INVALID_NAME);
         return s.strip();
     }
 
@@ -143,11 +124,7 @@ public class ManageSourceCatalog {
             if (result.length() > 2048) throw new IllegalArgumentException();
             return result;
         } catch (RuntimeException e) {
-            throw new CatalogException(
-                400,
-                "INVALID_URL",
-                "URL phải là HTTPS hợp lệ, cổng mặc định, không chứa tài khoản hoặc fragment; tối đa 2048 ký tự."
-            );
+            throw new CatalogException(CatalogError.INVALID_URL);
         }
     }
 }
