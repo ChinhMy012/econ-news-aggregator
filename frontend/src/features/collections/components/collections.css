@@ -1,0 +1,72 @@
+.catalog-list li.catalog-feed-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.collection-widget {
+  grid-column: 1/-1;
+  min-width: 0;
+  width: 100%;
+}
+.collection-history {
+  margin-top: 16px;
+}
+.collection-run {
+  border: 1px solid #d9e3dc;
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 12px;
+  background: #f8faf7;
+}
+.collection-run h4 {
+  margin: 0 0 8px;
+}
+.collection-run p {
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+  margin-bottom: 10px;
+}
+.collection-run dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 8px 0;
+}
+.collection-run dt {
+  color: #526158;
+  font-size: 0.8rem;
+}
+.collection-run dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+}
+.pending-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+.pending-list li {
+  padding: 22px;
+  background: white;
+  border: 1px solid #d9e3dc;
+  border-radius: 12px;
+  min-width: 0;
+}
+.pending-list h2 {
+  font-size: 1.2rem;
+  overflow-wrap: anywhere;
+}
+.pending-summary {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.pending-meta {
+  color: #526158;
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+
+.collection-run dl > div {
+  display: block;
+}

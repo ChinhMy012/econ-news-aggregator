@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
+import com.econnews.collection.application.exception.CollectionError;
+import com.econnews.collection.application.exception.CollectionException;
+import com.econnews.event.application.exception.EventError;
+import com.econnews.event.application.exception.EventException;
 import com.econnews.shared.adapter.web.logging.RequestIdFilter;
 import com.econnews.shared.application.exception.BusinessRuleException;
 import jakarta.validation.Valid;
@@ -73,8 +77,25 @@ class GlobalExceptionHandlerTest {
         assertFalse(body.toString().contains("database-secret"));
     }
 
+    @Test void mapsEventErrorBeforeUnexpectedError() throws Exception {
+        verify(mvc.perform(get("/test/event-conflict")).andReturn(), 409, "EVENT_SOURCE_REQUIRED");
+    }
+
+    @Test void preservesCollectionRetryAfter() throws Exception {
+        MvcResult result = mvc.perform(get("/test/collection-cooldown")).andReturn();
+        verify(result, 429, "COLLECTION_COOLDOWN");
+        assertEquals("30", result.getResponse().getHeader(HttpHeaders.RETRY_AFTER));
+    }
+
     @RestController
     static class TestController {
+        @GetMapping("/test/event-conflict") void eventConflict() {
+            throw new EventException(EventError.EVENT_SOURCE_REQUIRED);
+        }
+        @GetMapping("/test/collection-cooldown") void collectionCooldown() {
+            throw new CollectionException(CollectionError.COLLECTION_COOLDOWN);
+        }
+
         @GetMapping("/test/business") void business() {
             throw new BusinessRuleException("SOURCE_REQUIRED", "Cần nguồn.");
         }
